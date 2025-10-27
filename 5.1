@@ -1,0 +1,117 @@
+// app.js
+
+// 1. Import dependencies
+const express = require('express');
+const mongoose = require('mongoose');
+const bodyParser = require('body-parser');
+
+// 2. Initialize Express app
+const app = express();
+app.use(bodyParser.json());
+
+// 3. Connect to MongoDB
+mongoose.connect('mongodb://127.0.0.1:27017/nimbusDB', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+})
+.then(() => console.log('MongoDB connected'))
+.catch(err => console.error('MongoDB connection error:', err));
+
+// 4. Define Product Schema and Model
+const productSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    price: { type: Number, required: true, min: 0 },
+    category: { type: String, required: true }
+});
+
+const Product = mongoose.model('Product', productSchema);
+
+// 5. CRUD Operations
+
+// Create a new product
+app.post('/products', async (req, res) => {
+    try {
+        const { name, price, category } = req.body;
+        const newProduct = new Product({ name, price, category });
+        await newProduct.save();
+        res.status(201).json({ message: 'Product added successfully', product: newProduct });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// Read all products
+app.get('/products', async (req, res) => {
+    try {
+        const products = await Product.find();
+        res.json(products);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Update a product by ID
+app.put('/products/:id', async (req, res) => {
+    try {
+        const updatedProduct = await Product.findByIdAndUpdate(
+            req.params.id,
+            req.body,
+            { new: true, runValidators: true }
+        );
+        if (!updatedProduct) return res.status(404).json({ error: 'Product not found' });
+        res.json({ message: 'Product updated successfully', product: updatedProduct });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+// Delete a product by ID
+app.delete('/products/:id', async (req, res) => {
+    try {
+        const deletedProduct = await Product.findByIdAndDelete(req.params.id);
+        if (!deletedProduct) return res.status(404).json({ error: 'Product not found' });
+        res.json({ message: 'Product deleted successfully', product: deletedProduct });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 6. Start the server
+const PORT = 3000;
+app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+});
+
+/* 
+Expected Output Examples:
+
+1. POST /products
+Request Body: { "name": "Laptop", "price": 55000, "category": "Electronics" }
+Response: 
+{
+  "message": "Product added successfully",
+  "product": { "_id": "...", "name": "Laptop", "price": 55000, "category": "Electronics", "__v": 0 }
+}
+
+2. GET /products
+Response:
+[
+  { "_id": "...", "name": "Laptop", "price": 55000, "category": "Electronics", "__v": 0 },
+  { "_id": "...", "name": "Mouse", "price": 500, "category": "Electronics", "__v": 0 }
+]
+
+3. PUT /products/:id
+Request Body: { "price": 53000 }
+Response:
+{
+  "message": "Product updated successfully",
+  "product": { "_id": "...", "name": "Laptop", "price": 53000, "category": "Electronics", "__v": 0 }
+}
+
+4. DELETE /products/:id
+Response:
+{
+  "message": "Product deleted successfully",
+  "product": { "_id": "...", "name": "Mouse", "price": 500, "category": "Electronics", "__v": 0 }
+}
+*/
